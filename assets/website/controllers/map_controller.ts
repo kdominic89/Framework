@@ -5,6 +5,12 @@ import {OrthographicCamera} from "three/src/cameras/OrthographicCamera";
 import {Vector3} from "three";
 import Stats from "three/examples/jsm/libs/stats.module";
 
+type TileItem = {
+    fileName: string;
+    mapName: string;
+    threeObj: object
+};
+
 export default class extends Controller {
     connect() {
         const container: Element = this.element;
@@ -19,7 +25,7 @@ export default class extends Controller {
         const loader = new GLTFLoader();
 
 
-        let tileList: Map<string, any> = new Map(
+        const tileList: Map<string, TileItem> = new Map(
             [
                 ['0000', {
                     fileName: 'gras',
@@ -33,28 +39,9 @@ export default class extends Controller {
                 }]
             ]
         );
-        let promiseMap = [];
-        let promises = [];
-        let promiseIndex = 0;
-        tileList.forEach(function (tileData) {
-            let promise = loader.loadAsync(`${tilePath}/${tileData.fileName}.glb`);
-            promises.push(promise);
-            promiseMap[promiseIndex] = tileData.mapName;
-            promiseIndex++;
-        });
-
-        Promise.all(promises).then(function (value) {
-
-
-            value.forEach(function (result, index) {
-                let tileKey = promiseMap[index];
-                let currentTile = tileList.get(tileKey);
-                currentTile.threeObj = result;
-            });
-
-
+        
+        this.loadTileList(loader, tilePath, tileList).then((tileList) => {
             mapDataJson.layers.background.forEach(function (tileJson) {
-
                 let currentTile = tileList.get(tileJson.data);
                 console.log(currentTile.threeObj.scene.children[0]);
                 scene.add(currentTile.threeObj.scene);
@@ -65,8 +52,15 @@ export default class extends Controller {
             renderer.setSize(width, height);
             container.appendChild(renderer.domElement);
             renderer.render(scene, camera);
-        })
-
-
+        });
+    }
+    
+    loadTileList(loader: any, tilePath: string, tileList: Map<string, TileItem>): Promise<Map<string, TileItem>> {
+        return new Promise(async (resolve) => {
+            for (const [_, tileItem] of tileList) {
+                tileItem.threeObj = await loader.loadAsync(`${tilePath}/${tileItem.fileName}.glb`);
+            }
+            resolve(tileList);
+        });
     }
 }
